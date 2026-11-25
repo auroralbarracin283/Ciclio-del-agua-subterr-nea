@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cómo funciona un acuífero</title>
+<style>
+/* ===== PALETA (modifica aquí los colores principales) ===== */
+:root{--ink:#1d2b36;--mut:#56646f;--bg:#f5f8fa;--line:#d3dce3;--water:#1b7fc4;--deep:#0d4f8b;--card:#fff;--ok:#1f7a4d;--bad:#b3392f}
+*{box-sizing:border-box}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:14px}
+h1{font:600 1.55rem/1.2 Georgia,"Times New Roman",serif;margin:0 0 2px}
+h2{font:600 1.2rem/1.3 Georgia,serif;margin:0 0 8px}
+.sub{margin:0 0 12px;color:var(--mut);font-size:.95rem}
+.bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+button{font:inherit;font-size:.92rem;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:6px 11px;cursor:pointer}
+button:hover{border-color:var(--water)}
+button[aria-pressed=true],button.on{background:var(--deep);border-color:var(--deep);color:#fff}
+button:focus-visible,.lbl:focus-visible{outline:3px solid #f2a900;outline-offset:2px}
+.sep{width:1px;background:var(--line);margin:0 4px}
+.stage{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+svg{display:block;width:100%;height:auto}
+.reg{cursor:pointer;transition:opacity .4s}.reg.off{opacity:.45}
+.lbl{cursor:pointer;transition:opacity .3s}.lbl.dim{opacity:.2}
+.lbl rect{fill:#fff;stroke:#51606b;stroke-width:1;opacity:.93}
+.lbl text{fill:var(--ink);font-family:system-ui,sans-serif;font-weight:600}
+.lbl.sel rect{fill:#fff3c9;stroke:#c98a00;stroke-width:2}
+#lbls.hide{visibility:hidden}
+.panel{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.card b{display:block;margin-bottom:2px}.card p{margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.chips button{font-size:.85rem;padding:4px 9px;border-radius:999px}
+.q{margin:0 0 14px}.q p{font-weight:600;margin:0 0 6px}
+.opt{display:block;width:100%;text-align:left;margin:4px 0}
+.opt.ok{background:#e4f4ea;border-color:var(--ok)}.opt.bad{background:#fbe7e4;border-color:var(--bad)}
+.fb{margin:6px 0 0;font-size:.93rem;color:var(--mut)}
+.note{font-size:.85rem;color:var(--mut);margin:14px 0 0}
+@media(max-width:640px){.panel{grid-template-columns:1fr}h1{font-size:1.3rem}.sep{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>El agua bajo nuestros pies: cómo funciona un acuífero</h1>
+<p class="sub">Corte transversal de un terreno (modelo didáctico general). Pulsa cualquier etiqueta o zona para leer su explicación.</p>
+
+<div class="bar" role="toolbar" aria-label="Controles de la animación">
+  <button id="bPlay">Pausar</button>
+  <button id="bReset">Reiniciar</button>
+  <button id="bLbl" aria-pressed="true">Etiquetas</button>
+  <button id="bPump" aria-pressed="true">Bomba</button>
+  <span class="sep"></span>
+  <span id="phases" style="display:contents"></span>
+</div>
+
+<div class="stage">
+<svg id="sc" viewBox="0 0 900 520" role="img" aria-label="Corte del terreno: lluvia, infiltración, zona no saturada, nivel freático, zona saturada, pozo y manantial">
+<defs>
+  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#dcecf7"/><stop offset="1" stop-color="#fbfdff"/></linearGradient>
+  <!-- Zona no saturada: poros con aire (claros) y algo de agua -->
+  <pattern id="pU" width="16" height="16" patternUnits="userSpaceOnUse"><rect width="16" height="16" fill="#e6cb9b"/><circle cx="4" cy="4" r="2.3" fill="#fbf5e6"/><circle cx="12" cy="10" r="2.3" fill="#fbf5e6"/><circle cx="6" cy="13" r="1.4" fill="#7fbbe6"/></pattern>
+  <!-- Zona saturada: poros llenos de agua (azules) -->
+  <pattern id="pS" width="16" height="16" patternUnits="userSpaceOnUse"><rect width="16" height="16" fill="#c99f63"/><circle cx="4" cy="4" r="2.5" fill="#5aaee6"/><circle cx="12" cy="10" r="2.5" fill="#5aaee6"/><circle cx="6" cy="13" r="2" fill="#5aaee6"/></pattern>
+</defs>
+<rect width="900" height="520" fill="url(#sky)"/>
+<!-- Nubes -->
+<g fill="#fff" stroke="#b6cbda">
+  <g><ellipse cx="120" cy="42" rx="60" ry="20"/><ellipse cx="160" cy="34" rx="40" ry="18"/></g>
+  <g><ellipse cx="430" cy="40" rx="60" ry="20"/><ellipse cx="470" cy="32" rx="40" ry="18"/></g>
+  <g><ellipse cx="730" cy="42" rx="60" ry="20"/><ellipse cx="770" cy="34" rx="40" ry="18"/></g>
+</g>
+<!-- Terreno: las formas se calculan en JS (porque el nivel freático cambia al bombear) -->
+<path id="sat" class="reg" data-k="sat" data-ph="3 4" fill="url(#pS)"/>
+<path id="unsat" class="reg" data-k="nosat" data-ph="3" fill="url(#pU)"/>
+<rect class="reg" data-k="impermeable" data-ph="4" x="0" y="440" width="900" height="80" fill="#7a6858"/>
+<path class="reg" data-k="infiltracion" data-ph="2 3" d="M0 140H560L760 200H900V222H760L560 162H0Z" fill="#7b5230"/>
+<!-- Fisuras de la roca -->
+<g fill="none" stroke="#6b4527" stroke-width="1.6" opacity=".55" pointer-events="none">
+  <path d="M30 300l55 22 35 40-20 42"/><path d="M180 290l30 50 55-8 20 60"/><path d="M420 300l-25 45 50 30-10 50"/>
+  <path d="M560 310l40 30-15 50 50 30"/><path d="M700 290l-20 60 40 40"/>
+</g>
+<path id="wt" class="reg" data-k="freatico" data-ph="3" fill="none" stroke="#0d4f8b" stroke-width="3.5" stroke-dasharray="10 6"/>
+<!-- Charca alimentada por el manantial -->
+<path d="M770 200h130v14q-30 10-65 8-40 0-65-8z" fill="#2d8fd6" pointer-events="none"/>
+<g id="spring" class="reg" data-k="manantial" data-ph="6"><circle cx="760" cy="200" r="8" fill="#1b7fc4" stroke="#fff" stroke-width="2"/><path d="M750 206q10-22 20 0" fill="none" stroke="#fff" stroke-width="2"/></g>
+<!-- Pozo -->
+<g id="well" class="reg" data-k="pozo" data-ph="5">
+  <rect x="293" y="118" width="14" height="282" fill="#e3e8ec" stroke="#4d5b66" stroke-width="1.5"/>
+  <rect id="ww" x="295" width="10" fill="#7fbfec"/>
+  <g stroke="#4d5b66" stroke-width="1.5"><path d="M293 330h14M293 344h14M293 358h14M293 372h14M293 386h14"/></g>
+  <rect x="280" y="104" width="40" height="16" rx="3" fill="#3c4a55"/>
+  <path d="M320 112h32v16" fill="none" stroke="#4d5b66" stroke-width="3"/>
+  <rect x="332" y="128" width="46" height="12" fill="#cfe3f2" stroke="#4d5b66"/>
+</g>
+<g id="pts" pointer-events="none"></g>
+<g id="lbls"></g>
+</svg>
+</div>
+
+<div class="panel">
+  <div class="card"><b id="pT"></b><p id="pX"></p></div>
+  <div class="card"><b id="eT">Elemento seleccionado</b><p id="eX">Elige una etiqueta, una zona del dibujo o un botón de abajo.</p></div>
+</div>
+<div class="chips" id="chips" aria-label="Elementos del modelo"></div>
+
+<section class="card" aria-labelledby="qh">
+  <h2 id="qh">Comprueba lo que has aprendido</h2>
+  <div id="quiz"></div>
+</section>
+<p class="note">Modelo didáctico general del funcionamiento de un acuífero. No representa la geología real de ningún acuífero concreto (tampoco la de la masa de agua subterránea 070.012 Cingla). Velocidades y proporciones no están a escala: en la realidad el agua subterránea se mueve mucho más despacio.</p>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s), NS = 'http://www.w3.org/2000/svg';
+
+/* ===== GEOMETRÍA DEL MODELO (unidades del viewBox 900x520) ===== */
+const WELLX = 300, BASE = 440;                       // x del pozo y techo de la capa impermeable
+const WT = [[0,250],[380,244],[560,232],[680,218],[760,200],[900,200]]; // nivel freático natural
+const interp = (P,x) => { for (let i=1;i<P.length;i++) if (x<=P[i][0]) { const a=P[i-1], b=P[i]; return a[1]+(b[1]-a[1])*(x-a[0])/(b[0]-a[0]); } return P[P.length-1][1]; };
+const surf = x => x<560 ? 140 : x<760 ? 140+(x-560)*.3 : 200;  // superficie del terreno
+let dd = 0;                                          // descenso del nivel por bombeo
+const wt = x => interp(WT,x) + dd*Math.exp(-(((x-WELLX)/55)**2)); // nivel freático actual (con cono de descenso)
+
+/* ===== TEXTOS (edita aquí las explicaciones) ===== */
+const K = {
+ precipitacion:['Precipitación','Es el agua que cae del cielo como lluvia, granizo o nieve. Es la principal fuente que recarga las aguas subterráneas.'],
+ evaporacion:['Evaporación','Otra parte del agua vuelve a la atmósfera como vapor, desde el suelo y por la transpiración de las plantas. Por eso no toda la lluvia llega al acuífero.'],
+ escorrentia:['Escorrentía','Parte de la lluvia no entra en el suelo: corre por la superficie hacia barrancos y ríos. Es más habitual con lluvias intensas o en pendientes.'],
+ infiltracion:['Infiltración','Parte del agua penetra en el suelo y baja por los poros (huecos entre granos) y las fisuras (grietas) de las rocas. Es un proceso lento.'],
+ nosat:['Zona no saturada','Está entre la superficie y el nivel freático. Sus poros contienen aire y algo de agua; el agua la atraviesa hacia abajo sin llenar todos los huecos.'],
+ freatico:['Nivel freático','Es el límite superior de la zona saturada. Por encima, los poros tienen aire; por debajo, están llenos de agua. Sube con las lluvias y baja con la sequía o el bombeo.'],
+ sat:['Zona saturada','Aquí todos los poros y fisuras de la roca están llenos de agua. Esta es el agua subterránea propiamente dicha.'],
+ acuifero:['Acuífero','Formación geológica capaz de almacenar agua en sus poros y fisuras y de dejarla circular. Gravas, arenas o calizas fracturadas pueden serlo; permite extraer agua con pozos o que salga en manantiales.'],
+ flujo:['Flujo subterráneo','El agua no forma ríos bajo tierra: avanza despacio a través de poros y fisuras, desde las zonas de recarga hacia las de descarga (manantiales, ríos, pozos). La velocidad depende de la roca.'],
+ pozo:['Pozo','Perforación que llega hasta el acuífero. Una bomba sube el agua. Al bombear, el nivel baja alrededor del pozo (cono de descenso). Si se extrae más agua de la que entra, el nivel desciende año tras año.'],
+ manantial:['Manantial','Punto donde el agua subterránea sale a la superficie de forma natural, normalmente donde el nivel freático corta el terreno. Alimenta fuentes, arroyos y humedales.'],
+ impermeable:['Capa impermeable','Materiales como las arcillas dejan pasar muy poca agua. Hacen de base del acuífero e impiden que el agua siga bajando.']
+};
+/* Fases: qué elementos se animan en cada una (0 = todo el proceso) */
+const PH = [
+ {b:'Todo',t:'Vista completa: sigue el agua desde la lluvia hasta el pozo y el manantial. Con el botón «Bomba» puedes ver el efecto del bombeo.',rain:1,infil:1,flow:1,pump:1,spring:1},
+ {b:'1 Lluvia',t:'La lluvia cae sobre el terreno. Es la entrada de agua al sistema.',rain:1},
+ {b:'2 Infiltración',t:'No toda la lluvia se infiltra: una parte corre por la superficie (escorrentía), otra se evapora y el resto desciende despacio por el suelo.',rain:1,infil:1},
+ {b:'3 Zonas',t:'El agua baja por la zona no saturada (poros con aire y agua) hasta el nivel freático, donde empieza la zona saturada.',rain:1,infil:1},
+ {b:'4 Flujo',t:'En la zona saturada el agua circula despacio por poros y fisuras. Aquí las partículas van mucho más rápido que en la realidad.',flow:1},
+ {b:'5 Pozo',t:'El pozo atraviesa el terreno hasta el acuífero. La bomba extrae agua y el nivel freático baja alrededor del pozo.',flow:1,pump:1},
+ {b:'6 Manantial',t:'Donde el nivel freático corta la superficie, el agua sale de forma natural: es el manantial.',flow:1,spring:1}
+];
+/* Etiquetas: clave, texto, x, y, fases en las que destacan */
+const L = [
+ ['precipitacion','Precipitación',130,100,'1 2'],['evaporacion','Evaporación',470,112,'2'],['escorrentia','Escorrentía',650,124,'2'],
+ ['infiltracion','Infiltración',110,196,'2 3'],['nosat','Zona no saturada',460,200,'3'],['freatico','Nivel freático',110,272,'3'],
+ ['sat','Zona saturada',560,300,'3 4'],['acuifero','Acuífero',110,352,'4 5'],['flujo','Flujo subterráneo',470,385,'4 5 6'],
+ ['pozo','Pozo',350,92,'5'],['manantial','Manantial',770,168,'6'],['impermeable','Capa impermeable',450,490,'4']
+];
+/* Preguntas del test (a = índice de la opción correcta) */
+const Q = [
+ {q:'¿Qué diferencia hay entre infiltración y escorrentía?',o:['La infiltración es agua que entra en el suelo; la escorrentía es agua que corre por la superficie.','La infiltración es agua que se evapora; la escorrentía es agua que cae.','Son lo mismo con distinto nombre.','La escorrentía ocurre solo bajo tierra.'],a:0,e:'La infiltración es la parte de la lluvia que penetra en el terreno; la escorrentía es la que circula sobre la superficie.'},
+ {q:'¿Qué es el nivel freático?',o:['La profundidad del pozo.','El límite superior de la zona saturada, donde los poros pasan a estar llenos de agua.','La superficie del terreno.','El fondo del acuífero.'],a:1,e:'Por encima del nivel freático los poros tienen aire y agua; por debajo están completamente llenos de agua.'},
+ {q:'¿Cuál es la función de un acuífero?',o:['Impedir que el agua se infiltre.','Producir la lluvia.','Almacenar agua en sus poros y fisuras y permitir que circule.','Evitar la evaporación del agua del suelo.'],a:2,e:'Un acuífero almacena agua subterránea y la transmite a través de sus poros y fisuras, por lo que podemos extraerla con pozos o verla salir en manantiales.'}
+];
+
+/* ===== ESTADO ===== */
+let phase = 0, playing = true, pumpOn = true, fill = true, P = [], acc = {r:0,f:0};
+
+/* ===== DIBUJO DEL TERRENO (se recalcula si baja el nivel por bombeo) ===== */
+let lastDD = -1;
+function drawWT() {
+  if (Math.abs(dd-lastDD) < .05) return; lastDD = dd;
+  let wl = '', u = 'M0 140', x;
+  for (x=0; x<=900; x+=10) wl += (x?'L':'M')+x+' '+wt(x).toFixed(1);
+  $('#wt').setAttribute('d', wl);
+  $('#sat').setAttribute('d', wl+'L900 '+BASE+'L0 '+BASE+'Z');
+  for (x=10; x<=760; x+=10) u += 'L'+x+' '+surf(x);
+  for (x=760; x>=0; x-=10) u += 'L'+x+' '+wt(x).toFixed(1);
+  $('#unsat').setAttribute('d', u+'Z');
+  const y = wt(WELLX); $('#ww').setAttribute('y', y); $('#ww').setAttribute('height', 400-y);
+}
+
+/* ===== PARTÍCULAS ===== */
+const ST = { // tipo: [elemento SVG, atributos]
+ rain:['ellipse',{rx:1.7,ry:4.8,fill:'#3d96d6'}],
+ splash:['circle',{r:2,fill:'none',stroke:'#3d96d6','stroke-width':1.4}],
+ infil:['circle',{r:3.2,fill:'#1b7fc4',stroke:'#fff','stroke-width':.8}],
+ run:['circle',{r:2.8,fill:'#3d96d6'}],
+ evap:['circle',{r:2.8,fill:'#8fb0c6'}],
+ flow:['circle',{r:3.2,fill:'#0f6cb5',stroke:'#fff','stroke-width':1}],
+ pull:['circle',{r:3.2,fill:'#0f6cb5',stroke:'#fff','stroke-width':1}],
+ well:['circle',{r:3.4,fill:'#1b7fc4',stroke:'#fff','stroke-width':1}],
+ spring:['circle',{r:3.2,fill:'#1b7fc4',stroke:'#fff','stroke-width':.8}]
+};
+function style(p){ const a = ST[p.k][1]; for (const n in a) p.el.setAttribute(n, a[n]); }
+function add(k, o) { const p = Object.assign({k, o:1, ph:Math.random()*6}, o); p.el = document.createElementNS(NS, ST[k][0]); style(p); $('#pts').appendChild(p.el); P.push(p); return p; }
+function setK(p, k) { p.k = k; style(p); }
+const active = (k, f) => ({rain:f.rain,splash:f.rain,infil:f.infil,run:f.infil,evap:f.infil,flow:f.flow,spring:f.spring})[k] ?? 1;
+
+function update(dt) {
+  const f = PH[phase], pump = f.pump && pumpOn;
+  dd += ((pump?30:0) - dd) * Math.min(1, dt*1.2);
+  // Lluvia: gotas desde las nubes
+  acc.r += dt*(f.rain?16:0);
+  while (acc.r >= 1) { acc.r--; add('rain',{x:30+Math.random()*840,y:78,vy:300+Math.random()*60}); }
+  // Flujo subterráneo: nº de partículas constante
+  const nf = P.filter(p => p.k==='flow' && p.die==null).length;
+  if (f.flow) {
+    if (fill && nf < 20) { for (let i=nf;i<46;i++) add('flow',{x:Math.random()*740,f:.04+Math.random()*.92,s:.8+Math.random()*.4}); }
+    else if (nf < 46 && (acc.f += dt) > .3) { acc.f = 0; add('flow',{x:0,f:.04+Math.random()*.92,s:.8+Math.random()*.4}); }
+    fill = false;
+  }
+  for (const p of P) {
+    if (p.die != null) { p.die -= dt; p.dieF = Math.max(0,p.die/.35); if (p.die <= 0) { p.del = 1; continue; } }
+    switch (p.k) {
+      case 'rain': { // cae y, al tocar el suelo, se reparte: infiltración / escorrentía / evaporación
+        p.y += p.vy*dt; const sy = surf(p.x);
+        if (p.y >= sy) { p.del = 1; const r = Math.random();
+          if (!f.infil || p.x > 765) add('splash',{x:p.x,y:sy,life:.5,r:2});
+          else if (r < .55) add('infil',{x:p.x,y:sy});
+          else if (r < .8) add('run',{x:p.x,y:sy,life:3.2});
+          else add('evap',{x:p.x,y:sy,life:2.4});
+        } break; }
+      case 'splash': p.life -= dt; p.r += 14*dt; p.o = Math.max(0,p.life/.5); p.el.setAttribute('r',p.r); if (p.life<=0) p.del = 1; break;
+      case 'infil': // desciende lentamente por la zona no saturada
+        p.y += 22*dt; p.x += Math.sin(p.y/9+p.ph)*6*dt;
+        if (p.y >= wt(p.x)) { p.del = 1; if (f.flow && Math.random()<.25 && nf<70) add('flow',{x:p.x,f:.03,s:1}); } break;
+      case 'run': p.x += 48*dt; p.y = surf(p.x)-1.5; p.life -= dt; p.o = Math.min(1,p.life); if (p.life<=0 || p.x>885) p.del = 1; break;
+      case 'evap': p.y -= 26*dt; p.x += Math.sin(p.y/7+p.ph)*10*dt; p.life -= dt; p.o = Math.max(0,p.life/2.4)*.9; if (p.life<=0) p.del = 1; break;
+      case 'flow': { // avanza hacia la derecha entre el nivel freático y la base
+        p.x += 26*p.s*dt;
+        const w = wt(p.x)+8, bot = BASE-10; let ff = p.f;
+        if (p.f < .4 && p.x > 680) ff = p.f*Math.max(0, 1-(p.x-680)/80); // las capas altas suben hacia el manantial
+        p.y = w + ff*(bot-w) + Math.sin(p.x/22+p.ph)*2.5;
+        p.o = Math.min(1, p.x/50, (890-p.x)/40);
+        if (f.pump && pumpOn && dd>6 && p.x>235 && p.x<292 && p.f>.12 && Math.random()<1.4*dt) { setK(p,'pull'); p.ty = Math.min(Math.max(p.y,320),385); }
+        else if (f.spring && p.f<.4 && p.x>=756) { setK(p,'spring'); p.x = 760; p.y = 198; p.life = 4; }
+        else if (p.x > 885) p.x = 0;
+        break; }
+      case 'pull': p.x += 70*dt; p.y += Math.sign(p.ty-p.y)*Math.min(50*dt,Math.abs(p.ty-p.y)); p.o = 1; if (p.x >= 298) { setK(p,'well'); p.x = WELLX; p.y = p.ty; p.st = 0; } break;
+      case 'well': // sube por la tubería, sale por el caño y cae al depósito
+        if (p.st===0) { p.y -= 85*dt; if (p.y <= 112) { p.y = 112; p.st = 1; } }
+        else if (p.st===1) { p.x += 60*dt; if (p.x >= 352) { p.x = 352; p.st = 2; } }
+        else { p.y += 70*dt; if (p.y >= 128) p.del = 1; } break;
+      case 'spring': p.x += 40*dt; p.y = 198; p.life -= dt; p.o = Math.min(1,p.life); if (p.life<=0 || p.x>885) p.del = 1; break;
+    }
+  }
+  P = P.filter(p => { if (p.del) p.el.remove(); return !p.del; });
+}
+function render() {
+  drawWT();
+  for (const p of P) { const e = p.el; e.setAttribute('cx',p.x.toFixed(1)); e.setAttribute('cy',p.y.toFixed(1)); e.setAttribute('opacity',(p.o*(p.dieF ?? 1)).toFixed(2)); }
+}
+function sim(sec) { for (let i=0;i<sec/.05;i++) update(.05); render(); } // adelanta la animación para que no empiece vacía
+function reset() { P.forEach(p => p.el.remove()); P = []; dd = 0; lastDD = -1; fill = true; sim(3); }
+
+/* ===== FASES ===== */
+function setPhase(n) {
+  phase = n; const f = PH[n];
+  P.forEach(p => { if (!active(p.k,f)) p.die = .35; });
+  fill = true;
+  document.querySelectorAll('#phases button').forEach((b,i) => b.classList.toggle('on', i===n));
+  $('#pT').textContent = n ? 'Fase: '+PH[n].b.slice(2) : 'Todo el proceso'; $('#pX').textContent = f.t;
+  document.querySelectorAll('.reg').forEach(r => { const ph = r.dataset.ph; r.classList.toggle('off', !!n && !(ph||'').split(' ').includes(String(n))); });
+  document.querySelectorAll('.lbl').forEach(l => l.classList.toggle('dim', !!n && !l.dataset.ph.split(' ').includes(String(n))));
+  sim(2.5);
+}
+PH.forEach((f,i) => { const b = document.createElement('button'); b.textContent = f.b; b.onclick = () => setPhase(i); $('#phases').appendChild(b); });
+
+/* ===== ETIQUETAS Y SELECCIÓN DE ELEMENTOS ===== */
+const svg = $('#sc'), lg = $('#lbls');
+L.forEach(([k,t,x,y,ph]) => {
+  const g = document.createElementNS(NS,'g'); g.setAttribute('class','lbl'); g.dataset.k = k; g.dataset.ph = ph; g.setAttribute('tabindex','0'); g.setAttribute('role','button'); g.setAttribute('aria-label',t);
+  const r = document.createElementNS(NS,'rect'), tx = document.createElementNS(NS,'text');
+  tx.setAttribute('x',x); tx.setAttribute('y',y); tx.setAttribute('text-anchor','middle'); tx.setAttribute('dominant-baseline','central'); tx.textContent = t;
+  g.append(r,tx); g.onclick = () => sel(k); g.onkeydown = e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); sel(k); } }; lg.appendChild(g);
+});
+function layout() { // tamaño de letra según el ancho disponible (móvil = letra mayor)
+  const fs = Math.min(26, Math.max(14, 14*900/Math.max(svg.clientWidth,1)*.55));
+  lg.querySelectorAll('.lbl').forEach(g => { const t = g.querySelector('text'), r = g.querySelector('rect'); t.setAttribute('font-size',fs); const b = t.getBBox(); r.setAttribute('x',b.x-6); r.setAttribute('y',b.y-3); r.setAttribute('width',b.width+12); r.setAttribute('height',b.height+6); r.setAttribute('rx',5); });
+}
+new ResizeObserver(layout).observe(svg);
+function sel(k) {
+  $('#eT').textContent = K[k][0]; $('#eX').textContent = K[k][1];
+  document.querySelectorAll('.lbl').forEach(l => l.classList.toggle('sel', l.dataset.k===k));
+  document.querySelectorAll('.chips button').forEach(b => b.classList.toggle('on', b.dataset.k===k));
+}
+document.querySelectorAll('.reg[data-k]').forEach(r => r.addEventListener('click', () => sel(r.dataset.k)));
+Object.keys(K).forEach(k => { const b = document.createElement('button'); b.textContent = K[k][0]; b.dataset.k = k; b.onclick = () => sel(k); $('#chips').appendChild(b); });
+
+/* ===== CONTROLES ===== */
+$('#bPlay').onclick = e => { playing = !playing; e.target.textContent = playing ? 'Pausar' : 'Reproducir'; };
+$('#bReset').onclick = reset;
+$('#bLbl').onclick = e => { const on = lg.classList.toggle('hide'); e.target.setAttribute('aria-pressed', !on); };
+$('#bPump').onclick = e => { pumpOn = !pumpOn; e.target.setAttribute('aria-pressed', pumpOn); };
+if (svg.clientWidth && svg.clientWidth < 560) { lg.classList.add('hide'); $('#bLbl').setAttribute('aria-pressed','false'); } // en móvil, etiquetas ocultas por defecto
+
+/* ===== TEST ===== */
+Q.forEach((q,i) => {
+  const d = document.createElement('div'); d.className = 'q'; d.innerHTML = '<p>'+(i+1)+'. '+q.q+'</p>';
+  const fb = document.createElement('p'); fb.className = 'fb'; fb.setAttribute('aria-live','polite');
+  q.o.forEach((t,j) => { const b = document.createElement('button'); b.className = 'opt'; b.textContent = t;
+    b.onclick = () => { d.querySelectorAll('.opt').forEach((o,m) => { o.disabled = true; if (m===q.a) o.classList.add('ok'); }); if (j!==q.a) b.classList.add('bad');
+      fb.textContent = (j===q.a ? '¡Correcto! ' : 'No exactamente. La respuesta correcta es la '+'ABCD'[q.a]+'. ')+q.e; };
+    d.appendChild(b); });
+  d.appendChild(fb); $('#quiz').appendChild(d);
+});
+
+/* ===== ARRANQUE ===== */
+let last = 0;
+function loop(t) { const dt = Math.min(.05, (t-last)/1000 || 0); last = t; if (playing) { update(dt); render(); } requestAnimationFrame(loop); }
+setPhase(0); layout();
+if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { playing = false; $('#bPlay').textContent = 'Reproducir'; } // respeta «reducir movimiento»
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
